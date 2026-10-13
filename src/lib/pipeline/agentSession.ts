@@ -109,7 +109,8 @@ export class AgentSession {
     return true;
   }
 
-  async start(): Promise<void> {
+  /** `openingContext` joins the role in the handshake, before the agent can reply. */
+  async start(openingContext = ""): Promise<void> {
     if (this.running) return;
 
     const { token } = await this.deps.transport.agentToken();
@@ -119,7 +120,7 @@ export class AgentSession {
       conversationToken: token,
 
       // The role travels with the handshake: the server applies it only at start.
-      overrides: { agent: { prompt: { prompt: SYSTEM_PROMPT } } },
+      overrides: { agent: { prompt: { prompt: `${SYSTEM_PROMPT}${openingContext}` } } },
 
       onModeChange: ({ mode }) => {
         // `Mode` is only "speaking" | "listening" — there is no third value, so the model's

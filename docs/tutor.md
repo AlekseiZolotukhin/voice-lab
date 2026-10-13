@@ -7,7 +7,11 @@ must be true whether or not a model felt like following seven instructions at on
 - [`persona.ts`](../src/lib/persona.ts) — the role, sent once in the handshake
 - [`language.ts`](../src/lib/tutor/language.ts) — which language the learner just spoke
 - [`lesson.ts`](../src/lib/tutor/lesson.ts) — the pure reducer: state in, directives out
+- [`level.ts`](../src/lib/tutor/level.ts) — what they say their level is, or sound like
+- [`mistakes.ts`](../src/lib/tutor/mistakes.ts) — the rule table, and what it cannot see
+- [`lessonStore.ts`](../src/lib/tutor/lessonStore.ts) — what survives a reload
 - [`supervisor.ts`](../src/lib/tutor/supervisor.ts) — the only impure part, bus to channel
+- [`MistakeBoard.tsx`](../src/scene/MistakeBoard.tsx) — the record, on screen
 
 ## How the tutor reaches a conversation already running
 
@@ -48,6 +52,105 @@ the agent and is not configured.
 Two numbers are the whole policy (`FIRM_AT`, `OFFER_AT`). They are chosen, not measured:
 no recording of a learner drifting mid-lesson exists yet.
 
+## The level
+
+Asked, re-asked once, and then stopped being asked. `levelPhase` runs
+`asking → asked-again → probing → set`, and "they did not answer" is decided here rather
+than guessed by the agent: anything judgeable that was not a level counts as a dodge, and
+two of those is enough to stop asking and start listening.
+
+**An answer counts in either language.** Being asked your level in a language you are
+still learning is the one moment where reaching for Russian is an answer rather than
+drift, so `parseLevel` reads both and the steering sits that utterance out.
+
+**A guess says it is a guess.** Three outcomes only — A2, B1, C1 — because three spoken
+sentences do not support a finer number, and the agent is told to say "around B1". What
+it measures: how much the learner says, how varied it is, whether clauses hang off each
+other, how many ways of placing an action in time appear, and how often a rule caught a
+mistake. Thresholds are reasoned, not fitted; there is no corpus of graded learners here,
+and `?record` fixtures of real lessons are what would replace them.
+
+**Russian is never evidence of English**, so a Russian sentence is not kept as a probe —
+and while the learner is in Russian the level question waits where it is. Advancing it
+there would either skip a re-ask nobody heard or pile two directives, come back to English
+and also what is your level, into one reply. One problem at a time.
+
+**Reset means asked again.** `resetLevel()` clears the level and returns the phase to
+`asking`, tells the agent at once so the button does something mid-lesson, and keeps the
+mistakes — the learner asked to be re-assessed, not to be forgotten.
+
+## The two controls, and why each tells the agent
+
+`Reset level` and `Clear` are mirrors: one forgets the level and keeps the record, the
+other forgets the record and keeps the level. Both write through to the store, and both
+send a directive at once rather than waiting for the next session, because a button that
+does nothing until you reload is a button that looks broken.
+
+The directive is not a formality. The notes are already in the agent's context and cannot
+be taken back out, so without one the learner clears the board and is then told they keep
+making a mistake that is no longer written anywhere.
+
+Clearing also drops `rechecked`: those marks say which rules have been drilled, and a
+learner starting a clean record who then repeats a mistake three times should be tested on
+it again rather than silently passed over. Clearing an empty record does nothing at all —
+no directive, no event.
+
+One React note, since it cost an hour: the board keeps its lines and its count in the DOM,
+but whether there is *anything* to clear has to be state. React will not deliver a click
+to a button its own props call disabled, however the DOM flag was set, so a ref-toggled
+`disabled` produced a button that looked pressable and was dead. That state changes at
+most twice a lesson, which is a crossing rather than the stream.
+
+## What survives a reload
+
+`lessonStore.ts` keeps the level and the mistake log in their own IndexedDB database —
+its own rather than a key in `tokenStore`'s, which holds secrets under a non-extractable
+key and would mean two modules racing to create one object store for opposite reasons.
+
+Nothing there is load-bearing: a private window refuses to open a database at all, so
+every path degrades to "no memory yet". A tutor that forgets is worse than one that never
+remembered, and a page that will not load is worse than both.
+
+A restored lesson replays its mistakes onto the bus, so the board is not empty while the
+record behind it is not, and the count continues rather than restarting at one.
+
+## Remembering what the learner gets wrong
+
+The agent corrects out loud and does it far better than a regular expression ever will:
+it hears register, idiom and what the learner meant. But nothing keeps a model's
+correction, so it cannot be counted, listed, or asked about an hour later — and
+remembering is what the product promises. `mistakes.ts` is the half that can be kept.
+
+So there are two correctors and they are not in competition. The agent teaches; the rule
+table keeps the receipt.
+
+**One sentence, not one fragment per rule.** "i like listen radio" trips two rules, and
+a learner needs the sentence they should have said, so the rules apply cumulatively and
+the ids are kept alongside for the per-rule count. That is also the form the board shows:
+`what was said -> what English wants`.
+
+**The log outlives a conversation.** `forgiveSteering()` is what a new lesson does:
+the Russian streak is forgiven, the mistakes are not forgotten. `rollback()` is built
+per action for the same reason — a dropped directive must not drop a mistake, since
+the log is the one thing here a learner asks about later.
+
+**The agent is handed each note as it happens**, so "what do I keep getting wrong?" needs
+no intent detection at all: the record is simply always in context to answer from. After
+the same rule fires `RECHECK_AT` times the agent is additionally asked to work a question
+into its next reply that needs the right form — once per rule, because being drilled on
+everything is the correcting equivalent of nagging.
+
+**What the table cannot do**, stated so nobody mistakes the list for the whole picture:
+it cannot catch "that is not how anyone says it"; it cannot tell a learner's slip from an
+ASR error, since a transcript reading "I am agree" may be either; and it only handles
+pronoun subjects, because "my brother have" needs to know that "brother" is singular. A
+rule firing on a sentence that was fine is worse than a rule that misses — it teaches
+something false — which is why `mistakes.test.ts` keeps a list of correct sentences that
+must come back clean.
+
+A second LLM pass would do better, and `findMistakes` is the seam for it: same
+signature, same `Correction`, nothing else changes.
+
 ## Why the agent is left multilingual
 
 `overrides.agent.language` would force English, and it is tempting. It also locks ASR to
@@ -63,8 +166,8 @@ conversation rather than an error about prompts.
 **So the first thing the learner hears is still the dashboard's.** Whatever first message
 the ElevenLabs agent has configured is said before the tutor's role has any say, and this
 code can neither read it nor change it. The prompt therefore asks for the level in the
-agent's *first reply* rather than as an opening line, which holds whether that first
-message is the old pipeline greeting, something else, or nothing at all. Getting the
+agent's *first reply* only when it is not already known. A saved level is appended to the
+prompt override in the session handshake, before that reply can be made. Getting the
 greeting itself under code needs the `firstMessage` override enabled on the agent.
 
 ## What counts as speaking Russian

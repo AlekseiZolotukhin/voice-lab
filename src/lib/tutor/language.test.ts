@@ -14,6 +14,8 @@ test("one Russian word inside an English sentence is not drift", () => {
   // warning. Counted by character share instead, this sentence is 40% Cyrillic and
   // would have been judged the same as a sentence that is actually Russian.
   expect(tongueOf("yesterday I cooked борщ for my family")).toBe("en");
+  expect(tongueOf("I like борщ")).toBe("en");
+  expect(tongueOf("my мама is nice")).toBe("en");
 });
 
 test("half and half is neither", () => {
@@ -31,27 +33,30 @@ test("nothing to judge is unknown, not English", () => {
   }
 });
 
-test("a one-word answer is still judged", () => {
+test("a single Russian word is taken at face value", () => {
   expect(tongueOf("да")).toBe("ru");
-  expect(tongueOf("sure")).toBe("en");
+  expect(tongueOf("конечно")).toBe("ru");
 });
 
-test("a short English reply with one Russian word is still English", () => {
-  // Found in review: by share alone these are `mixed`, and `mixed` is inert — so a
-  // learner coming back to English while short of one word kept the streak they had
-  // just broken and got escalated for it.
-  expect(tongueOf("I like борщ")).toBe("en");
-  expect(tongueOf("my мама is nice")).toBe("en");
+test("a single English word does not forgive a run of Russian", () => {
+  // The asymmetry is the design: `en` wipes the whole ladder including an offer
+  // already made, while a wrongly counted slip costs one gentle invitation that the
+  // next English sentence undoes. So English has to be earned, and a reflex is not
+  // a decision to speak English.
+  for (const reflex of ["ok", "sure", "yes", "nice"]) {
+    expect(tongueOf(reflex), reflex).toBe("unknown");
+  }
+  expect(tongueOf("yes, I did"), "two words is a sentence").toBe("en");
 });
 
 test("a Russian reply with one English word is not a return to English", () => {
-  // Found in the second review: `en` is the one verdict that forgives a streak, so
-  // "one Russian word is a gap" without a majority test was an escape hatch — a
-  // borrowed interjection every other turn held the ladder at its bottom rung and
-  // the rule was never stated. These are inert instead: neither forgiven nor punished.
-  for (const half of ["нет, sorry", "да, please", "хорошо ok", "yes, спасибо"]) {
-    expect(tongueOf(half), half).toBe("mixed");
-  }
+  // Found in the second review: "one Russian word is a gap" without a majority test
+  // was an escape hatch — a borrowed interjection every other turn held the ladder at
+  // its bottom rung and the rule was never stated.
+  expect(tongueOf("нет, sorry")).toBe("mixed");
+  expect(tongueOf("да, please")).toBe("mixed");
+  expect(tongueOf("хорошо ok"), "the reflex carries no weight").toBe("ru");
+  expect(tongueOf("yes, спасибо")).toBe("mixed");
 });
 
 test("two Russian words among two English ones is not English", () => {
@@ -66,13 +71,22 @@ test("a contraction is one word, not two English ones", () => {
   expect(tongueOf("I don't know")).toBe("en");
 });
 
-test("throat-clearing is not a language", () => {
+test("a hyphenated Russian word is one word, not two", () => {
+  // Found in the fourth review, the same bug in the other direction: "по-русски"
+  // split into two Russian words, so an English question about one Russian word was
+  // `mixed` and did not forgive the run it should have.
+  expect(tongueOf("how do you say it по-русски")).toBe("en");
+  expect(tongueOf("давай по-русски")).toBe("ru");
+});
+
+test("throat-clearing is not a language, in either script", () => {
   // `ru` would tell a learner who said "mm" that they spoke Russian; `en` would
-  // forgive a run of Russian they never actually broke.
-  for (const sound of ["а", "мм", "ммм", "um", "uh", "hmm", "э"]) {
+  // forgive a run of Russian they never actually broke. Found in the fourth review:
+  // hesitations written with dashes escaped both guards, and the commonest English
+  // ones were absent — the costly direction, since `en` wipes the ladder.
+  const sounds = ["а", "э", "мм", "ммм", "э-э", "а-а-а", "м-м", "э, а",
+                  "um", "uh", "hmm", "oh", "eh", "huh", "mhm", "ок"];
+  for (const sound of sounds) {
     expect(tongueOf(sound), sound).toBe("unknown");
   }
-  // Still real answers, though.
-  expect(tongueOf("да")).toBe("ru");
-  expect(tongueOf("ok")).toBe("en");
 });

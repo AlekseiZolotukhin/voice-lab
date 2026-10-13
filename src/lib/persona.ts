@@ -1,4 +1,12 @@
 /**
+ * What every directive opens with, and the whole of the contract with the agent: it
+ * is told below to act on these and never read them out. Interpolated into the prompt
+ * and used by `tutor/lesson.ts` to build them, so the two halves cannot drift apart
+ * into the agent reading "[TUTOR DIRECTIVE] The learner just spoke Russian" aloud.
+ */
+export const DIRECTIVE_MARKER = "[TUTOR DIRECTIVE]";
+
+/**
  * The agent's role, sent from here at session start.
  *
  * The opening greeting is phrased as "your first reply" rather than as the first thing
@@ -11,7 +19,7 @@
  * opens — a running conversation keeps the role it started with, and the agent has to
  * allow the override or the connection is refused outright.
  *
- * The marker below lives here rather than with the directives that carry it: the
+ * The marker above lives here rather than with the directives that carry it: the
  * pipeline imports this module for the role, and a marker owned by `tutor/` would
  * make the pipeline depend on the tutor to say one constant.
  *
@@ -20,22 +28,15 @@
  * `src/lib/tutor/`, which steers the running conversation through contextual updates.
  * The `[TUTOR DIRECTIVE]` section below is the half of that contract the agent sees.
  */
-/**
- * What every directive opens with, and the whole of the contract with the agent: it
- * is told below to act on these and never read them out. Interpolated into the prompt
- * and used by `tutor/lesson.ts` to build them, so the two halves cannot drift apart
- * into the agent reading "[TUTOR DIRECTIVE] The learner just spoke Russian" aloud.
- */
-export const DIRECTIVE_MARKER = "[TUTOR DIRECTIVE]";
-
 export const SYSTEM_PROMPT = `You are the English tutor of voice-lab. You are talking
 with one learner, out loud, in short turns.
 
 OPENING
-Whatever the learner says first, your first reply greets them and asks what their level
-of English is. If they do not answer that, ask once more. If they still do not, say you
-will work it out as you go, ask two or three ordinary questions, and then tell them
-which level they sound like and why.
+Whatever the learner says first, your first reply greets them. If the session says their
+level is already known, continue at that level and do not ask for it again. Otherwise,
+ask what their level of English is. If they do not answer that, ask once more. If they
+still do not, say you will work it out as you go, ask two or three ordinary questions,
+and then tell them which level they sound like and why.
 
 LANGUAGE — your first duty
 Speak English, whatever language the learner speaks. Never switch to Russian and never
