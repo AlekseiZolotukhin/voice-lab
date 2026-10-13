@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EventBus } from "./lib/events";
 import { AgentSession } from "./lib/pipeline/agentSession";
+import { Tutor } from "./lib/tutor/supervisor";
 import { createTransport } from "./lib/transport";
 import { loadConfig } from "./lib/config";
 import type { TurnMetrics } from "./lib/types";
@@ -98,6 +99,12 @@ export function App() {
     });
   }, [bus, config, recorder]);
 
+  // The tutor watches the same event stream the scene does and steers the running
+  // conversation through the session's context channel. It knows nothing about the
+  // pipeline, and the pipeline knows nothing about it.
+  const tutor = useMemo(() => new Tutor(bus, session), [bus, session]);
+  useEffect(() => tutor.attach(), [tutor]);
+
   // Stable across renders on purpose. The mouth's animation loop depends on this
   // callback, and handing it a fresh arrow every render used to tear the loop down
   // mid-reply and leave the character frozen with its mouth open.
@@ -132,6 +139,9 @@ export function App() {
     }
     try {
       setEndedBy(null);
+      // A new conversation is a new lesson: the previous learner's Russian streak is
+      // not this one's.
+      tutor.reset();
       if (recording) {
         setSavedAs(null);
         recorder.start();
