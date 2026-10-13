@@ -120,7 +120,11 @@ export class AgentSession {
       conversationToken: token,
 
       // The role travels with the handshake: the server applies it only at start.
-      overrides: { agent: { prompt: { prompt: `${SYSTEM_PROMPT}${openingContext}` } } },
+      overrides: {
+        agent: {
+          prompt: { prompt: `${SYSTEM_PROMPT}${openingContext}` },
+        },
+      },
 
       onModeChange: ({ mode }) => {
         // `Mode` is only "speaking" | "listening" — there is no third value, so the model's

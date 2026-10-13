@@ -12,8 +12,10 @@ the lesson record stored in the current browser.
 
 1. The browser obtains a session token from the deployed Worker and opens an ElevenLabs
    conversation through `AgentSession`.
-2. The session handshake sends the tutor role from `src/lib/persona.ts`. A remembered
-   English level is appended to that prompt before the agent can make its first reply.
+2. The session handshake sends the tutor role from `src/lib/persona.ts`. Once a new
+   conversation is live, the tutor explicitly directs the agent to ask the learner's level.
+   A remembered English level is appended to the prompt before the agent can make its first
+   reply.
 3. ElevenLabs owns audio capture, VAD, speech recognition, language-model generation,
    synthesis and playback. `src/lib/pipeline/agentSession.ts` translates its callbacks
    into application events; it does not implement another voice pipeline.
@@ -110,8 +112,8 @@ must be enforced outside the model, on the server or tool boundary.
 - High-frequency audio, token and stage data stays in refs. One animation frame draws it;
   those events must not cause React renders.
 - The Worker only mints tokens. It does not receive or process conversation audio.
-- The model's configured first message is controlled in the ElevenLabs dashboard. The client
-  cannot read or replace it unless the relevant agent override is enabled.
+- The page does not depend on the optional ElevenLabs `firstMessage` override. The agent's
+  dashboard greeting may happen first, after which the page sends its level directive.
 - `sendContextualUpdate()` has no delivery acknowledgement. The tutor can know whether it
   had a conversation object to hand an instruction to, but cannot prove that ElevenLabs used
   it in a reply.

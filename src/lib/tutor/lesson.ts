@@ -153,10 +153,14 @@ function levelFor(nudge: number, offered: boolean): 1 | 2 | 3 {
   return 1;
 }
 
-function askLevelNote(again: boolean): string {
+export function askLevelDirective(again: boolean): string {
   return again
     ? `${DIRECTIVE_MARKER} The learner has not said what their level of English is. Ask once more, in the simplest words you can, and give them examples to pick from — beginner, intermediate, advanced.`
     : `${DIRECTIVE_MARKER} Ask the learner what their level of English is, in one short question.`;
+}
+
+export function resetLevelDirective(): string {
+  return `${DIRECTIVE_MARKER} The learner has cleared their level. Forget any previous level and ask what their level of English is now, in one short question.`;
 }
 
 function probeNote(): string {
@@ -273,7 +277,7 @@ function advanceLevel(
   if (state.levelPhase === "asking") {
     return [
       { ...state, levelPhase: "asked-again" },
-      [{ type: "ask-level", again: true, text: askLevelNote(true) }],
+      [{ type: "ask-level", again: true, text: askLevelDirective(true) }],
     ];
   }
 

@@ -113,7 +113,8 @@ test("a second conversation does not inherit the first learner's streak", async 
 
   handlers.onMessage?.({ message: "по-русски давай", source: "user" } as never);
   handlers.onMessage?.({ message: "нет, по-русски", source: "user" } as never);
-  await waitFor(() => expect(contextSent).toHaveLength(2));
+  const steering = () => contextSent.filter((text) => /Russian/.test(text));
+  await waitFor(() => expect(steering()).toHaveLength(2));
 
   // End it, then start again: this is a new lesson, and without the reset the rule
   // gets stated to a learner who was never invited back.
@@ -122,8 +123,8 @@ test("a second conversation does not inherit the first learner's streak", async 
 
   handlers.onMessage?.({ message: "опять по-русски", source: "user" } as never);
 
-  await waitFor(() => expect(contextSent).toHaveLength(3));
-  expect(contextSent[2], "back to the gentle rung").toBe(contextSent[0]);
+  await waitFor(() => expect(steering()).toHaveLength(3));
+  expect(steering()[2], "back to the gentle rung").toBe(steering()[0]);
 });
 
 test("a mistake travels from the recogniser to the board on the page", async () => {
@@ -177,12 +178,12 @@ test("the level the learner gave survives a reload, and is not asked for again",
 
   // Reload: a new App against the store the last one wrote.
   cleanup();
+  contextSent = [];
   render(<App />);
 
   await waitFor(() => expect(screen.getByText("B1")).toBeTruthy());
   await startTalking();
   handlers.onMessage?.({ message: "I went to the park", source: "user" } as never);
-  await waitFor(() => expect(contextSent.length).toBeGreaterThan(0));
   expect(
     contextSent.filter((t) => /what their level/i.test(t)),
     "a known level is not asked about again",
@@ -206,6 +207,17 @@ test("a remembered level is in the session handshake before the first reply", as
   expect(prompt).toContain("KNOWN LEARNER LEVEL");
   expect(prompt).toContain("B2");
   expect(prompt).toMatch(/do not ask for it again/i);
+  expect(contextSent.filter((text) => /Ask the learner what their level/i.test(text))).toEqual([]);
+});
+
+test("a new learner is asked their level through the live conversation", async () => {
+  render(<App />);
+  await startTalking();
+
+  expect(contextSent.filter((text) => /Ask the learner what their level/i.test(text))).toHaveLength(1);
+  const prompt = (startOptions.overrides as { agent?: { prompt?: { prompt?: string } } })
+    ?.agent?.prompt?.prompt;
+  expect(prompt).toContain("LEVEL STATUS");
 });
 
 test("resetting the level asks again, and the mistakes stay", async () => {

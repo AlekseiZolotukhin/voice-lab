@@ -38,6 +38,18 @@ test("a learner drifting into Russian is steered through the live conversation",
   expect(steering[0]).toMatch(/English/);
 });
 
+test("a new lesson asks its level through the live channel before it starts probing", () => {
+  const { sent, said, tutor } = harness();
+
+  tutor.begin();
+  expect(sent).toHaveLength(1);
+  expect(sent[0]).toMatch(/Ask the learner what their level/i);
+
+  said("I would rather not say");
+  expect(tutor.lesson.levelPhase).toBe("probing");
+  expect(sent[1]).toMatch(/stop asking/i);
+});
+
 test("the agent's own English is not judged as the learner's", () => {
   // `agent-reply` carries what the tutor said. Counting it would clear the streak
   // the learner had just set, on every single turn.

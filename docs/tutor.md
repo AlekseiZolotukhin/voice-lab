@@ -158,17 +158,12 @@ English, and then a Russian sentence comes back as mangled Latin instead of Cyri
 the drift this code exists to notice would become invisible, with nothing in the
 transcript to see it by. The agent answers in English because the prompt says so.
 
-For the same reason the opening question about level is in the prompt rather than in
-`overrides.agent.firstMessage`: an override the agent does not permit closes the
-connection instead of being ignored, and that reaches the page as a dropped
-conversation rather than an error about prompts.
-
-**So the first thing the learner hears is still the dashboard's.** Whatever first message
-the ElevenLabs agent has configured is said before the tutor's role has any say, and this
-code can neither read it nor change it. The prompt therefore asks for the level in the
-agent's *first reply* only when it is not already known. A saved level is appended to the
-prompt override in the session handshake, before that reply can be made. Getting the
-greeting itself under code needs the `firstMessage` override enabled on the agent.
+The page cannot control the dashboard's first message, and it does not use the optional
+`firstMessage` override. Instead, once the live session is open it sends an explicit level
+directive. That means a dashboard greeting may still come first, but the agent is immediately
+told to ask the level before it starts assessing the learner. A learner with a saved level
+does not receive that directive; their level is appended to the prompt override in the
+handshake and the conversation continues at that level.
 
 ## What counts as speaking Russian
 

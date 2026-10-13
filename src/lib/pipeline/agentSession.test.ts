@@ -30,7 +30,7 @@ vi.mock("@elevenlabs/client", () => ({
   },
 }));
 
-async function harness() {
+async function harness(openingContext = "") {
   const bus = new EventBus();
   const events: PipelineEvent[] = [];
   bus.on((e) => events.push(e));
@@ -44,7 +44,7 @@ async function harness() {
     onEnded: () => {},
   });
 
-  await session.start();
+  await session.start(openingContext);
   return { session, events, turns };
 }
 

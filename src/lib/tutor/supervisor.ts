@@ -2,8 +2,10 @@ import type { EventBus } from "../events";
 import { DIRECTIVE_MARKER } from "../persona";
 import {
   INITIAL_LESSON,
+  askLevelDirective,
   clearMistakes,
   forgiveSteering,
+  resetLevelDirective,
   resetLevel,
   rollback,
   step,
@@ -88,8 +90,17 @@ export class Tutor {
 
   /** Context that must arrive with a new session, before its first reply. */
   openingContext(): string {
-    if (!this.state.level) return "";
+    if (!this.state.level) {
+      return "\n\nLEVEL STATUS\nThe learner's English level is not known. Ask what their level is before assessing it from their conversation.";
+    }
     return `\n\nKNOWN LEARNER LEVEL\nThe learner's English level is ${describeLevel(this.state.level)}. It is already known: do not ask for it again. Greet them and continue at that level.`;
+  }
+
+  /** Asks through the live channel, so the dashboard greeting cannot skip the lesson. */
+  begin(): void {
+    if (this.state.levelPhase !== "asking") return;
+    if (!this.channel.sendContext(askLevelDirective(false))) return;
+    this.state = { ...this.state, levelPhase: "asked-again" };
   }
 
   /**
@@ -131,9 +142,9 @@ export class Tutor {
    */
   resetLevel(): void {
     this.state = resetLevel(this.state);
-    this.channel.sendContext(
-      `${DIRECTIVE_MARKER} The learner has cleared their level. Ask them what their level of English is now, in one short question, as if for the first time.`,
-    );
+    if (this.channel.sendContext(resetLevelDirective())) {
+      this.state = { ...this.state, levelPhase: "asked-again" };
+    }
     this.save();
     this.announceLevel();
   }

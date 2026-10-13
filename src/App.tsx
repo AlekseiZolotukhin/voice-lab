@@ -182,6 +182,7 @@ export function App() {
         recorder.start();
       }
       await session.start(tutor.openingContext());
+      tutor.begin();
       setTalking(true);
     } catch (e) {
       setError(startFailureMessage(e));
